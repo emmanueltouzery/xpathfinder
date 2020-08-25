@@ -34,7 +34,7 @@ fn print_pos(pos: Result<Option<TextPosition>, String>) {
     }
 }
 
-fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
+fn parse_xpath(xpath: &str) -> Result<Vec<(&str, usize)>, String> {
     let normalized_xpath = if xpath.starts_with('/') {
         &xpath[1..]
     } else {
@@ -53,16 +53,13 @@ fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
             };
             // check there are two elements and that the second element is a number...
             match elements.as_deref() {
-                Some(&[path, count]) => count
-                    .parse::<usize>()
-                    .map(|c| (path.to_string(), c))
-                    .map_err(|e| {
-                        format!(
-                            "failed parsing xpath at section: {}: {}",
-                            item,
-                            e.to_string()
-                        )
-                    }),
+                Some(&[path, count]) => count.parse::<usize>().map(|c| (path, c)).map_err(|e| {
+                    format!(
+                        "failed parsing xpath at section: {}: {}",
+                        item,
+                        e.to_string()
+                    )
+                }),
                 _ => Err(format!("failed parsing xpath at section: {}", item)),
             }
         })
@@ -71,16 +68,19 @@ fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
 
 fn find_pos(
     reader: impl std::io::Read,
-    needle_xpath: &[(String, usize)],
+    needle_xpath: &[(&str, usize)],
 ) -> Result<Option<TextPosition>, String> {
     let mut parser = EventReader::new(reader);
     let mut cur_xpath = vec![];
     let mut seen_xpaths = HashSet::new();
-    let normalized_needle = if needle_xpath.last() == Some(&("text()".to_string(), 1)) {
+    let normalized_needle: Vec<_> = if needle_xpath.last() == Some(&("text()", 1)) {
         &needle_xpath[0..needle_xpath.len() - 1]
     } else {
         needle_xpath
-    };
+    }
+    .into_iter()
+    .map(|(s, i)| (s.to_string(), *i))
+    .collect();
     loop {
         match parser.next() {
             Ok(XmlEvent::StartElement { name, .. }) => {
@@ -120,20 +120,13 @@ fn find_pos(
 
 #[test]
 fn parse_xpath_should_work() {
-    assert_eq!(
-        Ok(vec![("a".to_string(), 1), ("b".to_string(), 2)]),
-        parse_xpath("a[1]/b[2]")
-    );
+    assert_eq!(Ok(vec![("a", 1), ("b", 2)]), parse_xpath("a[1]/b[2]"));
 }
 
 #[test]
 fn parse_xpath_should_work_also_with_a_leader_slash_and_trailing_text() {
     assert_eq!(
-        Ok(vec![
-            ("a".to_string(), 1),
-            ("b".to_string(), 2),
-            ("text()".to_string(), 1)
-        ]),
+        Ok(vec![("a", 1), ("b", 2), ("text()", 1)]),
         parse_xpath("/a[1]/b[2]/text()[1]")
     );
 }
@@ -155,7 +148,7 @@ fn finds_xpath_should_report_the_correct_position() {
         Ok(Some(TextPosition { row: 0, column: 14 })),
         find_pos(
             "<a><b><c/></b><b/></a>".as_bytes(),
-            &vec![("a".to_string(), 1), ("b".to_string(), 2)]
+            &vec![("a", 1), ("b", 2)]
         )
     );
 }
@@ -166,7 +159,7 @@ fn finds_xpath_should_return_none_if_no_match() {
         Ok(None),
         find_pos(
             "<a><b><c/></b><b/></a>".as_bytes(),
-            &vec![("a".to_string(), 1), ("b".to_string(), 4)]
+            &vec![("a", 1), ("b", 4)]
         )
     );
 }
@@ -177,7 +170,7 @@ fn finds_xpath_should_return_err_if_invalid_xml() {
         Err("XML parse error: 1:16 Unexpected token: />".to_string()),
         find_pos(
             "<a><b><c/></b>b/></a>".as_bytes(),
-            &vec![("a".to_string(), 1), ("b".to_string(), 4)]
+            &vec![("a", 1), ("b", 4)]
         )
     );
 }
@@ -188,11 +181,7 @@ fn finds_xpath_should_ignore_trailing_text_segment() {
         Ok(Some(TextPosition { row: 0, column: 14 })),
         find_pos(
             "<a><b><c/></b><b/></a>".as_bytes(),
-            &vec![
-                ("a".to_string(), 1),
-                ("b".to_string(), 2),
-                ("text()".to_string(), 1)
-            ]
+            &vec![("a", 1), ("b", 2), ("text()", 1)]
         )
     );
 }
