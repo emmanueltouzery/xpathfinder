@@ -43,22 +43,23 @@ fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
     normalized_xpath
         .split('/')
         .map(|item| {
-            let mut item = item.to_string();
-            match (item.pop(), &item.split('[').collect::<Vec<_>>()[..]) {
-                (Some(']'), &[path, count]) if count.parse::<usize>().is_ok() => {
-                    // TODO try not to repeat the parse
-                    Ok((path.to_string(), count.parse().unwrap()))
-                }
-                (x, _) => Err(format!(
-                    "failed parsing xpath at section: {}",
-                    match x {
-                        None => item,
-                        Some(x) => {
-                            item.push(x);
-                            item
-                        }
-                    }
-                )),
+            let elements = if item.ends_with(']') {
+                Some(item[..item.len() - 1].split('[').collect::<Vec<_>>())
+            } else {
+                None
+            };
+            match elements.as_deref() {
+                Some(&[path, count]) => count
+                    .parse::<usize>()
+                    .map(|c| (path.to_string(), c))
+                    .map_err(|e| {
+                        format!(
+                            "failed parsing xpath at section: {}: {}",
+                            item,
+                            e.to_string()
+                        )
+                    }),
+                _ => Err(format!("failed parsing xpath at section: {}", item)),
             }
         })
         .collect()
@@ -136,7 +137,10 @@ fn parse_xpath_should_work_also_with_a_leader_slash_and_trailing_text() {
 #[test]
 fn parse_xpath_should_report_errors() {
     assert_eq!(
-        Err("failed parsing xpath at section: b[]".to_string()),
+        Err(
+            "failed parsing xpath at section: b[]: cannot parse integer from empty string"
+                .to_string()
+        ),
         parse_xpath("a[1]/b[]")
     );
 }
