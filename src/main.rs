@@ -44,14 +44,14 @@ fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
         .split('/')
         .map(|item| {
             // an item should be like "tag[2]"
-            // extract ("tag", 2) from it
+            // this block should extract ("tag", 2) from it
             let elements = if item.ends_with(']') {
+                // first get ["tag", "2"] out of it
                 Some(item[..item.len() - 1].split('[').collect::<Vec<_>>())
             } else {
                 None
             };
-            // now elements should contain ["tag", "2"]
-            // check the length and that the second element is a number...
+            // check there are two elements and that the second element is a number...
             match elements.as_deref() {
                 Some(&[path, count]) => count
                     .parse::<usize>()
