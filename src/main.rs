@@ -40,9 +40,8 @@ fn parse_xpath(xpath: &str) -> Result<Vec<(String, usize)>, String> {
     } else {
         xpath
     };
-    let split: Vec<_> = normalized_xpath.split('/').collect();
-    split
-        .into_iter()
+    normalized_xpath
+        .split('/')
         .map(|item| {
             let mut item = item.to_string();
             match (item.pop(), &item.split('[').collect::<Vec<_>>()[..]) {
