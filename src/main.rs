@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::env;
 use std::fs::File;
@@ -79,7 +80,7 @@ fn find_pos(
         needle_xpath
     }
     .into_iter()
-    .map(|(s, i)| (s.to_string(), *i))
+    .map(|(s, i)| (Cow::from(*s), *i))
     .collect();
     loop {
         match parser.next() {
@@ -90,7 +91,7 @@ fn find_pos(
                 loop {
                     i += 1;
                     // let's try tag[i]
-                    cur_xpath.push((name.to_string(), i));
+                    cur_xpath.push((Cow::from(name.to_string()), i));
                     if seen_xpaths.contains(&cur_xpath) {
                         // i've already seen tag[i] => we'll have
                         // to try tag[i+1]. Remove the last element
