@@ -87,16 +87,16 @@ fn find_pos(
             Ok(XmlEvent::StartElement { name, .. }) => {
                 // try to find the current xpath.
                 // we need to find the final index, eg div[1] div[2] and so on.
-                let mut i = 0;
+                let mut pair = (Cow::from(name.to_string()), 0);
                 loop {
-                    i += 1;
+                    pair.1 += 1;
                     // let's try tag[i]
-                    cur_xpath.push((Cow::from(name.to_string()), i));
+                    cur_xpath.push(pair);
                     if seen_xpaths.contains(&cur_xpath) {
                         // i've already seen tag[i] => we'll have
                         // to try tag[i+1]. Remove the last element
                         // and repeat the loop
-                        cur_xpath.pop();
+                        pair = cur_xpath.pop().unwrap();
                     } else {
                         // yes, i this is the good path, stop searching
                         break;
